@@ -3,6 +3,7 @@ package com.comunityalert.cas.service;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 
@@ -15,7 +16,7 @@ import com.comunityalert.cas.mapper.LocationMapper;
 public class LocationService {
     
     private final LocationRepository repo;
-    private LocationMapper mapper;
+    private final LocationMapper mapper;
 
     public LocationService(LocationRepository repo, LocationMapper mapper) {
         this.repo = repo;
@@ -32,25 +33,40 @@ public class LocationService {
         return repo.findAll();
     }
 
-   /* public Location create(Location l) {
-        return repo.save(l);
+    public List<LocationDTO> getAllAsDTO() {
+        return repo.findAll().stream()
+            .map(mapper::toDTO)
+            .collect(Collectors.toList());
     }
-
-    public List<Location> getAll() {
-        return repo.findAll();
-    } */
 
     public Optional<Location> getById(UUID id) {
         return repo.findById(id);
     }
 
-    public Location update(UUID id, Location payload) {
-        Location existing = repo.findById(id).orElseThrow();
-        existing.setName(payload.getName());
-        existing.setType(payload.getType());
-        existing.setParent(payload.getParent());
-        return repo.save(existing);
+    public Optional<LocationDTO> getByIdAsDTO(UUID id) {
+        return repo.findById(id).map(mapper::toDTO);
     }
-    public void delete(UUID id) { repo.deleteById(id); }
-}
 
+    public LocationDTO update(UUID id, LocationDTO dto) {
+        Location existing = repo.findById(id).orElseThrow();
+        existing.setName(dto.getName());
+        
+        if (dto.getType() != null) {
+            existing.setType(com.comunityalert.cas.enums.LocationType.valueOf(dto.getType().toUpperCase()));
+        }
+        
+        if (dto.getParentID() != null) {
+            Location parent = repo.findById(dto.getParentID()).orElseThrow();
+            existing.setParent(parent);
+        } else {
+            existing.setParent(null);
+        }
+        
+        Location saved = repo.save(existing);
+        return mapper.toDTO(saved);
+    }
+
+    public void delete(UUID id) { 
+        repo.deleteById(id); 
+    }
+}

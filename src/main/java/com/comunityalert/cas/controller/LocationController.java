@@ -1,7 +1,7 @@
 package com.comunityalert.cas.controller;
 
 import com.comunityalert.cas.dto.LocationDTO;
-import com.comunityalert.cas.model.Location;
+//import com.comunityalert.cas.model.Location;
 import com.comunityalert.cas.service.LocationService;
 
 import org.springframework.http.ResponseEntity;
@@ -18,7 +18,6 @@ public class LocationController {
         this.service = service;
     }
 
-
     @PostMapping
     public ResponseEntity<LocationDTO> create(@RequestBody LocationDTO dto) {
         LocationDTO saved = service.create(dto);
@@ -26,17 +25,19 @@ public class LocationController {
     }
     
     @GetMapping
-    public ResponseEntity<List<Location>> getAll() { 
-        return ResponseEntity.ok(service.getAll()); 
+    public ResponseEntity<List<LocationDTO>> getAll() { 
+        return ResponseEntity.ok(service.getAllAsDTO()); 
     }
     
     @GetMapping("/{id}")
-    public ResponseEntity<Location> getById(@PathVariable UUID id) { 
-        return service.getById(id).map(ResponseEntity::ok).orElse(ResponseEntity.notFound().build()); 
+    public ResponseEntity<LocationDTO> getById(@PathVariable UUID id) { 
+        return service.getByIdAsDTO(id)
+            .map(ResponseEntity::ok)
+            .orElse(ResponseEntity.notFound().build()); 
     }
     
     @PutMapping("/{id}")
-    public ResponseEntity<Location> update(@PathVariable UUID id, @RequestBody Location payload) { 
+    public ResponseEntity<LocationDTO> update(@PathVariable UUID id, @RequestBody LocationDTO payload) { 
         return ResponseEntity.ok(service.update(id, payload)); 
     }
     
