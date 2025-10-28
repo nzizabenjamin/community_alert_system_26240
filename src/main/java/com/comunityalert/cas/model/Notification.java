@@ -1,0 +1,100 @@
+package com.comunityalert.cas.model;
+
+import java.time.Instant;
+import java.util.UUID;
+
+import com.comunityalert.cas.enums.Channel;
+
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+
+@Entity
+@Table(name = "notifications")
+public class Notification {
+    
+    @Id
+    @GeneratedValue
+    private UUID id;
+
+    private String message;
+
+    @Enumerated(EnumType.STRING)
+    private Channel channel;
+
+    private Instant sentAt = Instant.now();
+
+    private boolean delivered;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recipient_id")
+    private User recipient;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "issue_id")
+    private IssueReport issue;
+
+    public UUID getId() {
+        return id;
+    }
+
+    public void setId(UUID id) {
+        this.id = id;
+    }
+
+    public String getMessage() {
+        return message;
+    }
+
+    public void setMessage(String message) {
+        this.message = message;
+    }
+
+    public Channel getChannel() {
+        return channel;
+    }
+
+    public void setChannel(Channel channel) {
+        this.channel = channel;
+    }
+
+    public Instant getSentAt() {
+        return sentAt;
+    }
+
+    public void setSentAt(Instant sentAt) {
+        this.sentAt = sentAt;
+    }
+
+    public boolean isDelivered() {
+        return delivered;
+    }
+
+    public void setDelivered(boolean delivered) {
+        this.delivered = delivered;
+    }
+
+    public User getRecipient() {
+        return recipient;
+    }
+
+    public void setRecipient(User recipient) {
+        this.recipient = recipient;
+    }
+
+    public IssueReport getIssue() {
+        return issue;
+    }
+
+    public void setIssue(IssueReport issue) {
+        this.issue = issue;
+    }
+
+    
+}
