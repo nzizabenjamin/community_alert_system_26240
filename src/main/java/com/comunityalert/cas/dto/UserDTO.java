@@ -1,39 +1,35 @@
-package com.comunityalert.cas.model;
+package com.comunityalert.cas.dto;
 
 import java.time.Instant;
 import java.util.UUID;
-import jakarta.persistence.*;
 import com.comunityalert.cas.enums.Role;
 
-@Entity
-@Table(name = "users")
-public class User {
-    @Id
-    @GeneratedValue
+public class UserDTO {
     private UUID id;
-
     private String fullName;
-
-    @Column(unique = true, nullable = false)
     private String email;
-
-    @Column(nullable = false)
-    private String password;
-
+    // NO password field - security!
     private String phoneNumber;
-
-    @Enumerated(EnumType.STRING)
     private Role role;
+    private Instant createdAt;
+    private UUID locationId;
+    private String locationName;
 
-    private Instant createdAt = Instant.now();
+    // Default constructor
+    public UserDTO() {}
 
-    @ManyToOne
-    @JoinColumn(name = "location_id")
-    private Location location;
-
-    // NEW: One-to-One relationship with UserProfile
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private UserProfile profile;
+    // Full constructor
+    public UserDTO(UUID id, String fullName, String email, String phoneNumber, 
+                   Role role, Instant createdAt, UUID locationId, String locationName) {
+        this.id = id;
+        this.fullName = fullName;
+        this.email = email;
+        this.phoneNumber = phoneNumber;
+        this.role = role;
+        this.createdAt = createdAt;
+        this.locationId = locationId;
+        this.locationName = locationName;
+    }
 
     // Getters and Setters
     public UUID getId() {
@@ -60,14 +56,6 @@ public class User {
         this.email = email;
     }
 
-    public String getPassword() {
-        return password;
-    }
-
-    public void setPassword(String password) {
-        this.password = password;
-    }
-
     public String getPhoneNumber() {
         return phoneNumber;
     }
@@ -92,22 +80,19 @@ public class User {
         this.createdAt = createdAt;
     }
 
-    public Location getLocation() {
-        return location;
+    public UUID getLocationId() {
+        return locationId;
     }
 
-    public void setLocation(Location location) {
-        this.location = location;
+    public void setLocationId(UUID locationId) {
+        this.locationId = locationId;
     }
 
-    public UserProfile getProfile() {
-        return profile;
+    public String getLocationName() {
+        return locationName;
     }
 
-    public void setProfile(UserProfile profile) {
-        this.profile = profile;
-        if (profile != null) {
-            profile.setUser(this);
-        }
+    public void setLocationName(String locationName) {
+        this.locationName = locationName;
     }
 }

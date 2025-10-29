@@ -12,7 +12,7 @@ import java.util.List;
 public interface LocationRepository extends JpaRepository<Location, UUID> {
     List<Location> findByParentId(UUID parentId);
 
-    Optional<Location>findById(UUID id);
+    //Optional<Location>findById(UUID id);
 
     List<Location> findByType(LocationType type);
 

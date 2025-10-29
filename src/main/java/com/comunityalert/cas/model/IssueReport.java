@@ -1,19 +1,13 @@
 package com.comunityalert.cas.model;
 
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 
 import com.comunityalert.cas.enums.Status;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 
 @Entity
 @Table(name = "issues")
@@ -47,6 +41,16 @@ public class IssueReport {
     @JoinColumn(name = "reported_by")
     private User reportedBy;
 
+    // NEW: Many-to-Many relationship with Tags
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @JoinTable(
+        name = "issue_tags",
+        joinColumns = @JoinColumn(name = "issue_id"),
+        inverseJoinColumns = @JoinColumn(name = "tag_id")
+    )
+    private Set<Tag> tags = new HashSet<>();
+
+    // Getters and Setters
     public UUID getId() {
         return id;
     }
@@ -127,5 +131,22 @@ public class IssueReport {
         this.reportedBy = reportedBy;
     }
 
-    
+    public Set<Tag> getTags() {
+        return tags;
+    }
+
+    public void setTags(Set<Tag> tags) {
+        this.tags = tags;
+    }
+
+    // Helper methods for managing tags
+    public void addTag(Tag tag) {
+        this.tags.add(tag);
+        tag.getIssues().add(this);
+    }
+
+    public void removeTag(Tag tag) {
+        this.tags.remove(tag);
+        tag.getIssues().remove(this);
+    }
 }

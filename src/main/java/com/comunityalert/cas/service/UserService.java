@@ -2,46 +2,87 @@ package com.comunityalert.cas.service;
 
 import java.util.UUID;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import java.util.Optional;
-import com.comunityalert.cas.model.User;
 
+import com.comunityalert.cas.dto.CreateUserDTO;
+import com.comunityalert.cas.dto.UserDTO;
+import com.comunityalert.cas.mapper.UserMapper;
+import com.comunityalert.cas.model.User;
 import com.comunityalert.cas.repository.UserRepository;
 
 @Service
 public class UserService {
     private final UserRepository repo;
+    private final UserMapper mapper;
 
-    public UserService(UserRepository repo) { 
-        this.repo = repo; 
+    public UserService(UserRepository repo, UserMapper mapper) { 
+        this.repo = repo;
+        this.mapper = mapper;
     }
     
-    public User create(User u) { 
-        return repo.save(u); 
+    /**
+     * Create new user from CreateUserDTO
+     */
+    public UserDTO create(CreateUserDTO dto) {
+        // TODO: In production, hash the password here!
+        // dto.setPassword(passwordEncoder.encode(dto.getPassword()));
+        
+        User user = mapper.toEntity(dto);
+        User saved = repo.save(user);
+        return mapper.toDTO(saved);
     }
     
-    public List<User> getAll() { 
-        return repo.findAll(); 
+    /**
+     * Get all users as DTOs (passwords hidden)
+     */
+    public List<UserDTO> getAll() { 
+        return repo.findAll().stream()
+            .map(mapper::toDTO)
+            .collect(Collectors.toList());
     }
     
-    public Optional<User> getById(UUID id) { 
-        return repo.findById(id); 
+    /**
+     * Get user by ID as DTO
+     */
+    public Optional<UserDTO> getById(UUID id) { 
+        return repo.findById(id)
+            .map(mapper::toDTO);
     }
     
-    public User update(UUID id, User payload) { 
-        User e = repo.findById(id).orElseThrow();
-        e.setFullName(payload.getFullName()); 
-        e.setEmail(payload.getEmail()); 
-        e.setPhoneNumber(payload.getPhoneNumber()); 
-        e.setLocation(payload.getLocation());
-        return repo.save(e);
+    /**
+     * Get raw User entity (for internal use only)
+     */
+    public Optional<User> getUserEntity(UUID id) {
+        return repo.findById(id);
+    }
+    
+    /**
+     * Update user from UserDTO
+     */
+    public UserDTO update(UUID id, UserDTO dto) { 
+        User existing = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("User not found"));
+        
+        mapper.updateEntityFromDTO(existing, dto);
+        User updated = repo.save(existing);
+        return mapper.toDTO(updated);
     }
 
+    /**
+     * Delete user
+     */
     public void delete(UUID id) {
         repo.deleteById(id); 
     }
     
-    public List<User> getUsersByProvinceName(String name) { 
-        return repo.findUsersByProvinceName(name);
-}
+    /**
+     * Get users by province name
+     */
+    public List<UserDTO> getUsersByProvinceName(String name) { 
+        return repo.findUsersByProvinceName(name).stream()
+            .map(mapper::toDTO)
+            .collect(Collectors.toList());
     }
+}
