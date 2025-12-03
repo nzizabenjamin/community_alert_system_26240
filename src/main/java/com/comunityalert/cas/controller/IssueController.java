@@ -8,6 +8,7 @@ import com.comunityalert.cas.service.IssueService;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -41,12 +42,15 @@ public class IssueController {
     }
 
     @GetMapping
-    public ResponseEntity<List<IssueReport>> getAll(
-            @RequestParam(defaultValue = "0") int page, 
-            @RequestParam(defaultValue = "10") int size) {
-        Page<IssueReport> p = service.getAll(PageRequest.of(page, size));
-        return ResponseEntity.ok(p.getContent());
-    }
+	public ResponseEntity<List<IssueReport>> getAll(
+			@RequestParam(defaultValue = "0") int page, 
+			@RequestParam(defaultValue = "10") int size,
+			@RequestParam(defaultValue = "dateReported") String sort,
+			@RequestParam(defaultValue = "DESC") String direction) {
+		Sort.Direction dir = Sort.Direction.fromString(direction);
+		Page<IssueReport> p = service.getAll(PageRequest.of(page, size, Sort.by(dir, sort)));
+		return ResponseEntity.ok(p.getContent());
+	}
 
     @GetMapping("/{id}")
     public ResponseEntity<IssueReport> getById(@PathVariable UUID id) { 
