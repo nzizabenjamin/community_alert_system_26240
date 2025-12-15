@@ -4,6 +4,7 @@ import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
 import com.comunityalert.cas.enums.LocationType;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 
 @Entity
@@ -23,11 +24,14 @@ public class Location {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
+    @JsonIgnore  // ← Add this to prevent circular reference
     private Location parent;
 
     @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL)
+    @JsonIgnore  // ← Add this to prevent circular reference
     private List<Location> children = new ArrayList<>();
 
+    // Getters and Setters
     public UUID getId() {
         return id;
     }
@@ -67,7 +71,4 @@ public class Location {
     public void setChildren(List<Location> children) {
         this.children = children;
     }
-
-    
-    
 }

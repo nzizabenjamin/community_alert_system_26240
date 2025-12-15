@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 import jakarta.persistence.*;
 import com.comunityalert.cas.enums.Role;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "users")
@@ -18,6 +19,7 @@ public class User {
     private String email;
 
     @Column(nullable = false)
+    @JsonIgnore  // ← Never expose passwords in JSON!
     private String password;
 
     private String phoneNumber;
@@ -31,8 +33,8 @@ public class User {
     @JoinColumn(name = "location_id")
     private Location location;
 
-    // NEW: One-to-One relationship with UserProfile
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnore  // ← Ignore profile to prevent circular reference
     private UserProfile profile;
 
     // Getters and Setters
