@@ -31,11 +31,7 @@ public class JwtService {
     }
 
     public String getUserIdFromToken(String token) {
-        String userId = tokenToUserId.get(token);
-        if (userId == null) {
-            System.out.println("DEBUG JwtService: Token not found in map. Total tokens in map: " + tokenToUserId.size());
-        }
-        return userId;
+        return tokenToUserId.get(token);
     }
 
     public void invalidateToken(String token) {

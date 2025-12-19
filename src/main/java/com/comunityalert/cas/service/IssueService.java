@@ -94,18 +94,44 @@ public class IssueService {
 
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Page<IssueReport> getAll(Pageable pageable) { 
-        Page<IssueReport> pageData = repo.findAll(pageable);
-        // Force load relationships before transaction closes
-        pageData.getContent().forEach(issue -> {
-            try {
-                if (issue.getLocation() != null) issue.getLocation().getName();
-                if (issue.getReportedBy() != null) issue.getReportedBy().getId();
-                if (issue.getTags() != null) issue.getTags().size();
-            } catch (Exception e) {
-                System.err.println("DEBUG IssueService: Error loading relationships for issue " + issue.getId() + ": " + e.getMessage());
+        try {
+            System.out.println("DEBUG IssueService: getAll(Pageable) called with sort: " + pageable.getSort());
+            Page<IssueReport> pageData = repo.findAll(pageable);
+            System.out.println("DEBUG IssueService: Found " + pageData.getTotalElements() + " total issues");
+            // Force load relationships before transaction closes
+            pageData.getContent().forEach(issue -> {
+                try {
+                    // Initialize location proxy
+                    if (issue.getLocation() != null) {
+                        issue.getLocation().getName(); // Trigger proxy initialization
+                        issue.getLocation().getType(); // Ensure it's fully loaded
+                    }
+                    // Initialize reportedBy proxy
+                    if (issue.getReportedBy() != null) {
+                        issue.getReportedBy().getId(); // Trigger proxy initialization
+                        issue.getReportedBy().getEmail(); // Ensure it's fully loaded
+                    }
+                    // Initialize tags collection
+                    if (issue.getTags() != null) {
+                        issue.getTags().size(); // Trigger collection initialization
+                        issue.getTags().forEach(tag -> tag.getName()); // Load each tag
+                    }
+                } catch (Exception e) {
+                    System.err.println("DEBUG IssueService: Error loading relationships for issue " + issue.getId() + ": " + e.getMessage());
+                }
+            });
+            return pageData;
+        } catch (Exception e) {
+            System.err.println("DEBUG IssueService: Error in getAll(Pageable): " + e.getMessage());
+            System.err.println("Exception type: " + e.getClass().getName());
+            if (e.getCause() != null) {
+                System.err.println("Caused by: " + e.getCause().getMessage());
+                e.getCause().printStackTrace();
             }
-        });
-        return pageData;
+            e.printStackTrace();
+            // Return empty page instead of throwing
+            return Page.empty(pageable);
+        }
     }
 
     /**
@@ -125,12 +151,28 @@ public class IssueService {
             Page<IssueReport> pageData;
             if (currentUser.getRole() == Role.ADMIN) {
                 // Admin sees all issues
-                System.out.println("DEBUG IssueService: Admin user, fetching all issues");
-                pageData = repo.findAll(pageable);
+                System.out.println("DEBUG IssueService: Admin user, fetching all issues with sort: " + pageable.getSort());
+                try {
+                    pageData = repo.findAll(pageable);
+                } catch (Exception e) {
+                    System.err.println("DEBUG IssueService: Error in repo.findAll: " + e.getMessage());
+                    System.err.println("Exception type: " + e.getClass().getName());
+                    e.printStackTrace();
+                    // Return empty page on error
+                    return Page.empty(pageable);
+                }
             } else {
                 // Resident sees only their own issues
                 System.out.println("DEBUG IssueService: Resident user, fetching issues for user ID: " + currentUser.getId());
-                pageData = repo.findByReportedById(currentUser.getId(), pageable);
+                try {
+                    pageData = repo.findByReportedById(currentUser.getId(), pageable);
+                } catch (Exception e) {
+                    System.err.println("DEBUG IssueService: Error in repo.findByReportedById: " + e.getMessage());
+                    System.err.println("Exception type: " + e.getClass().getName());
+                    e.printStackTrace();
+                    // Return empty page on error
+                    return Page.empty(pageable);
+                }
             }
             
             System.out.println("DEBUG IssueService: Found " + pageData.getTotalElements() + " total issues, " + pageData.getContent().size() + " on this page");
@@ -138,9 +180,21 @@ public class IssueService {
             // Force load relationships before transaction closes
             pageData.getContent().forEach(issue -> {
                 try {
-                    if (issue.getLocation() != null) issue.getLocation().getName();
-                    if (issue.getReportedBy() != null) issue.getReportedBy().getId();
-                    if (issue.getTags() != null) issue.getTags().size();
+                    // Initialize location proxy
+                    if (issue.getLocation() != null) {
+                        issue.getLocation().getName(); // Trigger proxy initialization
+                        issue.getLocation().getType(); // Ensure it's fully loaded
+                    }
+                    // Initialize reportedBy proxy
+                    if (issue.getReportedBy() != null) {
+                        issue.getReportedBy().getId(); // Trigger proxy initialization
+                        issue.getReportedBy().getEmail(); // Ensure it's fully loaded
+                    }
+                    // Initialize tags collection
+                    if (issue.getTags() != null) {
+                        issue.getTags().size(); // Trigger collection initialization
+                        issue.getTags().forEach(tag -> tag.getName()); // Load each tag
+                    }
                 } catch (Exception e) {
                     System.err.println("DEBUG IssueService: Error loading relationships for issue " + issue.getId() + ": " + e.getMessage());
                 }

@@ -19,6 +19,13 @@ public interface IssueRepository extends JpaRepository<IssueReport, UUID> {
     @Query("SELECT i FROM IssueReport i WHERE i.reportedBy.id = :userId")
     Page<IssueReport> findByReportedById(@Param("userId") UUID userId, Pageable pageable);
     
+    // Custom query to handle sorting with proper column names
+    @Query("SELECT i FROM IssueReport i ORDER BY i.dateReported DESC")
+    Page<IssueReport> findAllOrderByDateReportedDesc(Pageable pageable);
+    
+    @Query("SELECT i FROM IssueReport i ORDER BY i.dateReported ASC")
+    Page<IssueReport> findAllOrderByDateReportedAsc(Pageable pageable);
+    
     @Query("SELECT i FROM IssueReport i WHERE i.status = :status")
     List<IssueReport> findByStatus(@Param("status") Status status);
     

@@ -43,8 +43,27 @@ public class NotificationService {
         return repo.findByIssueId(issueId);
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Page<Notification> getAll(Pageable pageable) {
-        return repo.findAll(pageable);
+        Page<Notification> pageData = repo.findAll(pageable);
+        // Force load relationships before transaction closes
+        pageData.getContent().forEach(notif -> {
+            try {
+                // Initialize recipient proxy
+                if (notif.getRecipient() != null) {
+                    notif.getRecipient().getId();
+                    notif.getRecipient().getEmail();
+                }
+                // Initialize issue proxy
+                if (notif.getIssue() != null) {
+                    notif.getIssue().getId();
+                    notif.getIssue().getTitle();
+                }
+            } catch (Exception e) {
+                System.err.println("DEBUG NotificationService: Error loading relationships: " + e.getMessage());
+            }
+        });
+        return pageData;
     }
 
     /**
@@ -69,8 +88,20 @@ public class NotificationService {
         
         // Force load relationships before transaction closes
         pageData.getContent().forEach(notif -> {
-            if (notif.getRecipient() != null) notif.getRecipient().getId();
-            if (notif.getIssue() != null) notif.getIssue().getId();
+            try {
+                // Initialize recipient proxy
+                if (notif.getRecipient() != null) {
+                    notif.getRecipient().getId();
+                    notif.getRecipient().getEmail();
+                }
+                // Initialize issue proxy
+                if (notif.getIssue() != null) {
+                    notif.getIssue().getId();
+                    notif.getIssue().getTitle();
+                }
+            } catch (Exception e) {
+                System.err.println("DEBUG NotificationService: Error loading relationships: " + e.getMessage());
+            }
         });
         
         return pageData;

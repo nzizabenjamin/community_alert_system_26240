@@ -5,10 +5,12 @@ import java.util.List;
 import java.util.ArrayList;
 import com.comunityalert.cas.enums.LocationType;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "locations")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Location {
 
     @Id
