@@ -1,5 +1,6 @@
 package com.comunityalert.cas.dto;
 
+import java.util.List;
 import java.util.UUID;
 
 public class CreateIssueDTO {
@@ -9,6 +10,7 @@ public class CreateIssueDTO {
     private UUID locationId;
     private UUID reportedById;
     private String photoUrl;
+    private List<UUID> tagIds; // Tags selected by resident
 
     // Constructors
     public CreateIssueDTO() {}
@@ -70,5 +72,13 @@ public class CreateIssueDTO {
 
     public void setPhotoUrl(String photoUrl) {
         this.photoUrl = photoUrl;
+    }
+
+    public List<UUID> getTagIds() {
+        return tagIds;
+    }
+
+    public void setTagIds(List<UUID> tagIds) {
+        this.tagIds = tagIds;
     }
 }

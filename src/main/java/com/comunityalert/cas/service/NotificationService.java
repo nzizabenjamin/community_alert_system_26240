@@ -5,8 +5,11 @@ import java.util.List;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import com.comunityalert.cas.enums.Channel;
+import com.comunityalert.cas.enums.Role;
 import com.comunityalert.cas.model.IssueReport;
 import com.comunityalert.cas.model.Notification;
 import com.comunityalert.cas.model.User;
@@ -38,5 +41,38 @@ public class NotificationService {
 
     public List<Notification> getByIssue(UUID issueId) {
         return repo.findByIssueId(issueId);
+    }
+
+    public Page<Notification> getAll(Pageable pageable) {
+        return repo.findAll(pageable);
+    }
+
+    /**
+     * Get notifications with role-based filtering
+     * RESIDENT users only see their own notifications
+     * ADMIN users see all notifications
+     */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Page<Notification> getAll(Pageable pageable, User currentUser) {
+        if (currentUser == null) {
+            return Page.empty(pageable);
+        }
+        
+        Page<Notification> pageData;
+        if (currentUser.getRole() == Role.ADMIN) {
+            // Admin sees all notifications
+            pageData = repo.findAll(pageable);
+        } else {
+            // Resident sees only their own notifications
+            pageData = repo.findByRecipientId(currentUser.getId(), pageable);
+        }
+        
+        // Force load relationships before transaction closes
+        pageData.getContent().forEach(notif -> {
+            if (notif.getRecipient() != null) notif.getRecipient().getId();
+            if (notif.getIssue() != null) notif.getIssue().getId();
+        });
+        
+        return pageData;
     }
 }

@@ -14,6 +14,8 @@ public interface UserRepository extends JpaRepository<User, UUID> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
 
+    Optional<User> findByResetToken(String token);
+
 
     @Query("SELECT u FROM User u WHERE u.location.type = 'VILLAGE' AND u.location.parent.parent.parent.parent.name = :provinceName")
     List<User> findUsersByProvinceName(String provinceName);

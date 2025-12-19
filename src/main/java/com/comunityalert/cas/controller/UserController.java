@@ -4,6 +4,9 @@ import com.comunityalert.cas.dto.CreateUserDTO;
 import com.comunityalert.cas.dto.UserDTO;
 import com.comunityalert.cas.service.UserService;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
@@ -11,6 +14,7 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/users")
+@CrossOrigin(origins = "http://localhost:5173")
 public class UserController {
     
     private final UserService service;
@@ -30,11 +34,17 @@ public class UserController {
     }
     
     /**
-     * Get all users (passwords hidden)
+     * Get all users (passwords hidden) with pagination
      */
     @GetMapping
-    public ResponseEntity<List<UserDTO>> getAll() { 
-        return ResponseEntity.ok(service.getAll()); 
+    public ResponseEntity<?> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "fullName") String sortBy,
+            @RequestParam(defaultValue = "ASC") String sortDir) {
+        Sort.Direction dir = Sort.Direction.fromString(sortDir);
+        Page<UserDTO> pageData = service.getAll(PageRequest.of(page, size, Sort.by(dir, sortBy)));
+        return ResponseEntity.ok(pageData);
     }
 
     /**
@@ -71,5 +81,22 @@ public class UserController {
     @GetMapping("/byProvince/{name}")
     public ResponseEntity<List<UserDTO>> byProvince(@PathVariable String name) { 
         return ResponseEntity.ok(service.getUsersByProvinceName(name)); 
+    }
+
+    /**
+     * Search users globally
+     */
+    @GetMapping("/search")
+    public ResponseEntity<?> search(@RequestParam String q) {
+        // Search by name, email, or phone
+        List<UserDTO> allUsers = service.getAll();
+        List<UserDTO> results = allUsers.stream()
+            .filter(user -> 
+                (user.getFullName() != null && user.getFullName().toLowerCase().contains(q.toLowerCase())) ||
+                (user.getEmail() != null && user.getEmail().toLowerCase().contains(q.toLowerCase())) ||
+                (user.getPhoneNumber() != null && user.getPhoneNumber().contains(q))
+            )
+            .toList();
+        return ResponseEntity.ok(results);
     }
 }

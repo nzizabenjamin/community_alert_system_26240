@@ -11,6 +11,7 @@ import com.comunityalert.cas.model.Tag;
 import com.comunityalert.cas.model.Location;
 import com.comunityalert.cas.model.User;
 import com.comunityalert.cas.enums.Status;
+import com.comunityalert.cas.enums.Role;
 import com.comunityalert.cas.repository.IssueRepository;
 import com.comunityalert.cas.repository.LocationRepository;
 import com.comunityalert.cas.repository.UserRepository;
@@ -71,6 +72,16 @@ public class IssueService {
             .orElseThrow(() -> new RuntimeException("User not found"));
         issue.setReportedBy(user);
         
+        // Validate and add tags if provided
+        if (dto.getTagIds() != null && !dto.getTagIds().isEmpty()) {
+            tagService.validateTagIds(dto.getTagIds());
+            for (UUID tagId : dto.getTagIds()) {
+                Tag tag = tagService.getById(tagId)
+                    .orElseThrow(() -> new RuntimeException("Tag not found"));
+                issue.addTag(tag);
+            }
+        }
+        
         issue.setDateReported(Instant.now());
         issue.setStatus(Status.REPORTED);
         
@@ -81,12 +92,79 @@ public class IssueService {
         return repo.findAll(); 
     }
 
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Page<IssueReport> getAll(Pageable pageable) { 
-        return repo.findAll(pageable); 
+        Page<IssueReport> pageData = repo.findAll(pageable);
+        // Force load relationships before transaction closes
+        pageData.getContent().forEach(issue -> {
+            try {
+                if (issue.getLocation() != null) issue.getLocation().getName();
+                if (issue.getReportedBy() != null) issue.getReportedBy().getId();
+                if (issue.getTags() != null) issue.getTags().size();
+            } catch (Exception e) {
+                System.err.println("DEBUG IssueService: Error loading relationships for issue " + issue.getId() + ": " + e.getMessage());
+            }
+        });
+        return pageData;
     }
 
+    /**
+     * Get all issues with role-based filtering
+     * RESIDENT users only see their own issues
+     * ADMIN users see all issues
+     */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Page<IssueReport> getAll(Pageable pageable, User currentUser) {
+        if (currentUser == null) {
+            // No user authenticated, return empty page
+            System.out.println("DEBUG IssueService: No user provided, returning empty page");
+            return Page.empty(pageable);
+        }
+        
+        try {
+            Page<IssueReport> pageData;
+            if (currentUser.getRole() == Role.ADMIN) {
+                // Admin sees all issues
+                System.out.println("DEBUG IssueService: Admin user, fetching all issues");
+                pageData = repo.findAll(pageable);
+            } else {
+                // Resident sees only their own issues
+                System.out.println("DEBUG IssueService: Resident user, fetching issues for user ID: " + currentUser.getId());
+                pageData = repo.findByReportedById(currentUser.getId(), pageable);
+            }
+            
+            System.out.println("DEBUG IssueService: Found " + pageData.getTotalElements() + " total issues, " + pageData.getContent().size() + " on this page");
+            
+            // Force load relationships before transaction closes
+            pageData.getContent().forEach(issue -> {
+                try {
+                    if (issue.getLocation() != null) issue.getLocation().getName();
+                    if (issue.getReportedBy() != null) issue.getReportedBy().getId();
+                    if (issue.getTags() != null) issue.getTags().size();
+                } catch (Exception e) {
+                    System.err.println("DEBUG IssueService: Error loading relationships for issue " + issue.getId() + ": " + e.getMessage());
+                }
+            });
+            
+            return pageData;
+        } catch (Exception e) {
+            System.err.println("DEBUG IssueService: Error fetching issues: " + e.getMessage());
+            e.printStackTrace();
+            // Return empty page on error instead of throwing
+            return Page.empty(pageable);
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public Optional<IssueReport> getById(UUID id) {
-        return repo.findById(id); 
+        Optional<IssueReport> issue = repo.findById(id);
+        // Force load relationships before transaction closes
+        issue.ifPresent(i -> {
+            if (i.getLocation() != null) i.getLocation().getName();
+            if (i.getReportedBy() != null) i.getReportedBy().getId();
+            if (i.getTags() != null) i.getTags().size();
+        });
+        return issue;
     }
 
     public List<IssueReport> getByUser(UUID userId) { 
@@ -112,6 +190,172 @@ public class IssueService {
 
     public void delete(UUID id) { 
         repo.deleteById(id); 
+    }
+
+    // Dashboard helper methods (without role filtering - for backward compatibility)
+    public long count() {
+        return repo.count();
+    }
+
+    public long countByStatus(String status) {
+        try {
+            Status s = Status.valueOf(status);
+            return repo.countByStatus(s);
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    public List<IssueReport> findTop5ByOrderByDateReportedDesc() {
+        return repo.findTop5ByOrderByDateReportedDesc();
+    }
+
+    public List<Map<String, Object>> countByCategory() {
+        var list = repo.findAll();
+        Map<String, Long> map = new java.util.HashMap<>();
+        for (var i : list) {
+            String cat = i.getCategory() == null ? "UNCATEGORIZED" : i.getCategory();
+            map.put(cat, map.getOrDefault(cat, 0L) + 1);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (var e : map.entrySet()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("category", e.getKey());
+            m.put("count", e.getValue());
+            out.add(m);
+        }
+        return out;
+    }
+
+    public List<Map<String, Object>> countByLocation() {
+        var list = repo.findAll();
+        Map<String, Long> map = new java.util.HashMap<>();
+        for (var i : list) {
+            String loc = i.getLocation() == null || i.getLocation().getName() == null ? "UNKNOWN" : i.getLocation().getName();
+            map.put(loc, map.getOrDefault(loc, 0L) + 1);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (var e : map.entrySet()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("location", e.getKey());
+            m.put("count", e.getValue());
+            out.add(m);
+        }
+        return out;
+    }
+
+    // Dashboard helper methods with role-based filtering
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public long count(User currentUser) {
+        if (currentUser == null) {
+            return 0L;
+        }
+        if (currentUser.getRole() == Role.ADMIN) {
+            return repo.count();
+        } else {
+            return repo.findByReportedById(currentUser.getId()).size();
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public long countByStatus(String status, User currentUser) {
+        if (currentUser == null) {
+            return 0L;
+        }
+        try {
+            Status s = Status.valueOf(status);
+            List<IssueReport> issues;
+            if (currentUser.getRole() == Role.ADMIN) {
+                issues = repo.findByStatus(s);
+            } else {
+                issues = repo.findByReportedById(currentUser.getId()).stream()
+                    .filter(i -> i.getStatus() == s)
+                    .toList();
+            }
+            return issues.size();
+        } catch (Exception e) {
+            return 0L;
+        }
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<IssueReport> findTop5ByOrderByDateReportedDesc(User currentUser) {
+        if (currentUser == null) {
+            return List.of();
+        }
+        List<IssueReport> issues;
+        if (currentUser.getRole() == Role.ADMIN) {
+            issues = repo.findTop5ByOrderByDateReportedDesc();
+        } else {
+            issues = repo.findByReportedById(currentUser.getId()).stream()
+                .sorted((a, b) -> b.getDateReported().compareTo(a.getDateReported()))
+                .limit(5)
+                .toList();
+        }
+        // Force load relationships before transaction closes
+        issues.forEach(issue -> {
+            if (issue.getLocation() != null) issue.getLocation().getName();
+            if (issue.getReportedBy() != null) issue.getReportedBy().getId();
+            if (issue.getTags() != null) issue.getTags().size();
+        });
+        return issues;
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Map<String, Object>> countByCategory(User currentUser) {
+        if (currentUser == null) {
+            return List.of();
+        }
+        List<IssueReport> list;
+        if (currentUser.getRole() == Role.ADMIN) {
+            list = repo.findAll();
+        } else {
+            list = repo.findByReportedById(currentUser.getId());
+        }
+        Map<String, Long> map = new java.util.HashMap<>();
+        for (var i : list) {
+            String cat = i.getCategory() == null ? "UNCATEGORIZED" : i.getCategory();
+            map.put(cat, map.getOrDefault(cat, 0L) + 1);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (var e : map.entrySet()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("category", e.getKey());
+            m.put("count", e.getValue());
+            out.add(m);
+        }
+        return out;
+    }
+
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Map<String, Object>> countByLocation(User currentUser) {
+        if (currentUser == null) {
+            return List.of();
+        }
+        List<IssueReport> list;
+        if (currentUser.getRole() == Role.ADMIN) {
+            list = repo.findAll();
+        } else {
+            list = repo.findByReportedById(currentUser.getId());
+        }
+        Map<String, Long> map = new java.util.HashMap<>();
+        for (var i : list) {
+            // Force load location relationship within transaction
+            String loc = "UNKNOWN";
+            if (i.getLocation() != null) {
+                loc = i.getLocation().getName();
+                if (loc == null) loc = "UNKNOWN";
+            }
+            map.put(loc, map.getOrDefault(loc, 0L) + 1);
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (var e : map.entrySet()) {
+            Map<String, Object> m = new HashMap<>();
+            m.put("location", e.getKey());
+            m.put("count", e.getValue());
+            out.add(m);
+        }
+        return out;
     }
 
     /**
@@ -147,5 +391,45 @@ public class IssueService {
         IssueReport issue = repo.findById(issueId)
             .orElseThrow(() -> new RuntimeException("Issue not found"));
         return issue.getTags();
+    }
+
+    /**
+     * Search issues by query string (searches title, description, category)
+     * With role-based filtering
+     */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<IssueReport> search(String query, User currentUser) {
+        if (currentUser == null) {
+            return List.of();
+        }
+        
+        String lowerQuery = query.toLowerCase();
+        List<IssueReport> issuesToSearch;
+        
+        if (currentUser.getRole() == Role.ADMIN) {
+            // Admin searches all issues
+            issuesToSearch = repo.findAll();
+        } else {
+            // Resident searches only their own issues
+            issuesToSearch = repo.findByReportedById(currentUser.getId());
+        }
+        
+        List<IssueReport> results = issuesToSearch.stream()
+            .filter(issue -> 
+                (issue.getTitle() != null && issue.getTitle().toLowerCase().contains(lowerQuery)) ||
+                (issue.getDescription() != null && issue.getDescription().toLowerCase().contains(lowerQuery)) ||
+                (issue.getCategory() != null && issue.getCategory().toLowerCase().contains(lowerQuery)) ||
+                (issue.getStatus() != null && issue.getStatus().toString().toLowerCase().contains(lowerQuery))
+            )
+            .toList();
+        
+        // Force load relationships before transaction closes
+        results.forEach(issue -> {
+            if (issue.getLocation() != null) issue.getLocation().getName();
+            if (issue.getReportedBy() != null) issue.getReportedBy().getId();
+            if (issue.getTags() != null) issue.getTags().size();
+        });
+        
+        return results;
     }
 }

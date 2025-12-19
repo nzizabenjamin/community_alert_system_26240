@@ -14,10 +14,14 @@ public class Tag {
     @GeneratedValue
     private UUID id;
 
-    @Column(unique = true, nullable = false)
+    @Column(name = "name", unique = true, nullable = false)
     private String name;
 
+    @Column(name = "description")
     private String description;
+
+    @Column(name = "active", nullable = true)
+    private Boolean active = true; // Tags are active by default (nullable to allow Hibernate to add column)
 
     @ManyToMany(mappedBy = "tags")
     @JsonIgnore  // Prevent circular reference in JSON
@@ -54,5 +58,17 @@ public class Tag {
 
     public void setIssues(Set<IssueReport> issues) {
         this.issues = issues;
+    }
+
+    public boolean isActive() {
+        return active != null ? active : true; // Default to true if null
+    }
+
+    public void setActive(boolean active) {
+        this.active = active;
+    }
+    
+    public Boolean getActive() {
+        return active != null ? active : true;
     }
 }

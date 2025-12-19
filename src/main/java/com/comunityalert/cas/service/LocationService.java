@@ -6,6 +6,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import com.comunityalert.cas.model.Location;
 import com.comunityalert.cas.repository.LocationRepository;
@@ -39,6 +41,10 @@ public class LocationService {
             .collect(Collectors.toList());
     }
 
+    public Page<LocationDTO> getAllAsDTO(Pageable pageable) {
+        return repo.findAll(pageable).map(mapper::toDTO);
+    }
+
     public Optional<Location> getById(UUID id) {
         return repo.findById(id);
     }
@@ -68,5 +74,9 @@ public class LocationService {
 
     public void delete(UUID id) { 
         repo.deleteById(id); 
+    }
+
+    public long count() {
+        return repo.count();
     }
 }

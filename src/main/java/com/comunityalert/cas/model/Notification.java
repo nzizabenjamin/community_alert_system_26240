@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import com.comunityalert.cas.enums.Channel;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -14,6 +15,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "notifications")
@@ -23,21 +25,27 @@ public class Notification {
     @GeneratedValue
     private UUID id;
 
+    @Column(name = "message")
     private String message;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "channel")
     private Channel channel;
 
+    @Column(name = "sent_at")
     private Instant sentAt = Instant.now();
 
+    @Column(name = "delivered")
     private boolean delivered;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "recipient_id")
+    @JoinColumn(name = "recipient_id", nullable = false)
+    @JsonIgnoreProperties({"password", "profile", "resetToken", "resetTokenExpiry"})
     private User recipient;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "issue_id")
+    @JoinColumn(name = "issue_id", nullable = true)
+    @JsonIgnoreProperties({"tags", "reportedBy", "location"})
     private IssueReport issue;
 
     public UUID getId() {

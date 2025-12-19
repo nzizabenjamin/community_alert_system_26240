@@ -25,7 +25,22 @@ public class UserMapper {
 
         UserDTO dto = new UserDTO();
         dto.setId(user.getId());
-        dto.setFullName(user.getFullName());
+        // Use fullName if available, otherwise extract name from email or use email
+        String fullName = user.getFullName();
+        if (fullName == null || fullName.trim().isEmpty()) {
+            // Extract name from email (part before @) or use email as fallback
+            String email = user.getEmail();
+            if (email != null && email.contains("@")) {
+                fullName = email.substring(0, email.indexOf("@"));
+                // Capitalize first letter
+                if (fullName.length() > 0) {
+                    fullName = fullName.substring(0, 1).toUpperCase() + fullName.substring(1);
+                }
+            } else {
+                fullName = email != null ? email : "Unknown User";
+            }
+        }
+        dto.setFullName(fullName);
         dto.setEmail(user.getEmail());
         dto.setPhoneNumber(user.getPhoneNumber());
         dto.setRole(user.getRole());

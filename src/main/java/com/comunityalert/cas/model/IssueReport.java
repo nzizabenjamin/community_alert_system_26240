@@ -6,6 +6,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.comunityalert.cas.enums.Status;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 import jakarta.persistence.*;
 
@@ -17,37 +18,46 @@ public class IssueReport {
     @GeneratedValue
     private UUID id;
 
+    @Column(name = "title")
     private String title;
 
-    @Column(columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 
+    @Column(name = "category")
     private String category;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status")
     private Status status;
 
-    @ManyToOne
-    @JoinColumn(name = "location_id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id", nullable = true)
+    @JsonIgnoreProperties({"parent", "children"})
     private Location location;
 
+    @Column(name = "photo_url")
     private String photoUrl;
 
+    @Column(name = "date_reported")
     private Instant dateReported = Instant.now();
 
+    @Column(name = "date_resolved")
     private Instant dateResolved;
 
-    @ManyToOne
-    @JoinColumn(name = "reported_by")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reported_by", nullable = true)
+    @JsonIgnoreProperties({"password", "email", "role"})
     private User reportedBy;
 
     // NEW: Many-to-Many relationship with Tags
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE})
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY)
     @JoinTable(
         name = "issue_tags",
         joinColumns = @JoinColumn(name = "issue_id"),
         inverseJoinColumns = @JoinColumn(name = "tag_id")
     )
+    @JsonIgnoreProperties({"issues"})
     private Set<Tag> tags = new HashSet<>();
 
     // Getters and Setters

@@ -13,20 +13,24 @@ public class User {
     @GeneratedValue
     private UUID id;
 
+    @Column(name = "full_name")
     private String fullName;
 
-    @Column(unique = true, nullable = false)
+    @Column(name = "email", unique = true, nullable = false)
     private String email;
 
-    @Column(nullable = false)
+    @Column(name = "password", nullable = false)
     @JsonIgnore  // ← Never expose passwords in JSON!
     private String password;
 
+    @Column(name = "phone_number")
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "role")
     private Role role;
 
+    @Column(name = "created_at")
     private Instant createdAt = Instant.now();
 
     @ManyToOne
@@ -36,6 +40,13 @@ public class User {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonIgnore  // ← Ignore profile to prevent circular reference
     private UserProfile profile;
+    
+    // Password reset fields
+    @Column(name = "reset_token")
+    private String resetToken;
+    
+    @Column(name = "reset_token_expiry")
+    private java.time.Instant resetTokenExpiry;
 
     // Getters and Setters
     public UUID getId() {
@@ -111,5 +122,21 @@ public class User {
         if (profile != null) {
             profile.setUser(this);
         }
+    }
+
+    public String getResetToken() {
+        return resetToken;
+    }
+
+    public void setResetToken(String resetToken) {
+        this.resetToken = resetToken;
+    }
+
+    public java.time.Instant getResetTokenExpiry() {
+        return resetTokenExpiry;
+    }
+
+    public void setResetTokenExpiry(java.time.Instant resetTokenExpiry) {
+        this.resetTokenExpiry = resetTokenExpiry;
     }
 }

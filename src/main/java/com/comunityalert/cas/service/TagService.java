@@ -5,6 +5,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import org.springframework.stereotype.Service;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 
 import com.comunityalert.cas.model.Tag;
 import com.comunityalert.cas.repository.TagRepository;
@@ -32,8 +34,33 @@ public class TagService {
     /**
      * Get all tags
      */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<Tag> getAll() {
         return repo.findAll();
+    }
+
+    /**
+     * Get all tags with pagination
+     */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Page<Tag> getAll(Pageable pageable) {
+        return repo.findAll(pageable);
+    }
+
+    /**
+     * Get all active tags (for residents to select from)
+     */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public List<Tag> getActiveTags() {
+        return repo.findByActiveTrue();
+    }
+
+    /**
+     * Get all active tags with pagination
+     */
+    @org.springframework.transaction.annotation.Transactional(readOnly = true)
+    public Page<Tag> getActiveTags(Pageable pageable) {
+        return repo.findByActiveTrue(pageable);
     }
 
     /**
@@ -72,7 +99,7 @@ public class TagService {
     }
 
     /**
-     * Update a tag
+     * Update a tag (rename, change description, or activate/deactivate)
      */
     public Tag update(UUID id, Tag payload) {
         Tag existing = repo.findById(id)
@@ -85,8 +112,49 @@ public class TagService {
         }
         
         existing.setName(payload.getName());
-        existing.setDescription(payload.getDescription());
+        if (payload.getDescription() != null) {
+            existing.setDescription(payload.getDescription());
+        }
+        existing.setActive(payload.isActive());
         return repo.save(existing);
+    }
+
+    /**
+     * Deactivate a tag (soft delete - doesn't remove from issues)
+     */
+    public Tag deactivate(UUID id) {
+        Tag tag = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Tag not found"));
+        tag.setActive(false);
+        return repo.save(tag);
+    }
+
+    /**
+     * Activate a tag
+     */
+    public Tag activate(UUID id) {
+        Tag tag = repo.findById(id)
+            .orElseThrow(() -> new RuntimeException("Tag not found"));
+        tag.setActive(true);
+        return repo.save(tag);
+    }
+
+    /**
+     * Validate that tag IDs exist and are active (for residents selecting tags)
+     */
+    public void validateTagIds(List<UUID> tagIds) {
+        if (tagIds == null || tagIds.isEmpty()) {
+            return; // No tags selected is valid
+        }
+        
+        for (UUID tagId : tagIds) {
+            Tag tag = repo.findById(tagId)
+                .orElseThrow(() -> new RuntimeException("Tag with ID " + tagId + " not found"));
+            
+            if (!tag.isActive()) {
+                throw new RuntimeException("Tag '" + tag.getName() + "' is not active and cannot be selected");
+            }
+        }
     }
 
     /**
