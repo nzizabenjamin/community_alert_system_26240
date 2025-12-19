@@ -39,6 +39,9 @@ public class Notification {
     @Column(name = "delivered")
     private boolean delivered;
 
+    @Column(name = "read", nullable = true)
+    private Boolean read = false;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "recipient_id", nullable = false)
     @JsonIgnoreProperties({"password", "profile", "resetToken", "resetTokenExpiry"})
@@ -87,6 +90,23 @@ public class Notification {
 
     public void setDelivered(boolean delivered) {
         this.delivered = delivered;
+    }
+
+    public boolean isRead() {
+        return read != null ? read : false;
+    }
+
+    public Boolean getRead() {
+        return read;
+    }
+
+    public void setRead(Boolean read) {
+        this.read = read;
+    }
+    
+    // Convenience method for setting boolean
+    public void setRead(boolean read) {
+        this.read = read;
     }
 
     public User getRecipient() {

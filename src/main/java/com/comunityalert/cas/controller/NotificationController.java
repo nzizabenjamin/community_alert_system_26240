@@ -59,23 +59,13 @@ public class NotificationController {
     }
 
     /**
-     * Send notification to a user about an issue
+     * NOTE: Notifications are system-generated only.
+     * They are automatically created when:
+     * - A new issue is reported (notifies ADMIN users)
+     * - An issue status changes (notifies the reporting resident)
+     * 
+     * This endpoint is removed to enforce system-generated notifications only.
      */
-    @PostMapping("/send/{userId}/{issueId}")
-    public ResponseEntity<Notification> send(
-            @PathVariable UUID userId, 
-            @PathVariable UUID issueId, 
-            @RequestParam String message) {
-        
-        // Use getUserEntity() instead of getById() to get the actual User entity
-        User u = userService.getUserEntity(userId)
-            .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        IssueReport i = issueService.getById(issueId)
-            .orElseThrow(() -> new RuntimeException("Issue not found"));
-        
-        return ResponseEntity.ok(service.send(u, i, message));
-    }
 
     /**
      * Get all notifications for a specific user
@@ -174,17 +164,38 @@ public class NotificationController {
             return ResponseEntity.status(403).body("Notification not found or access denied");
         }
         
-        // TODO: Add read field to Notification model if needed
-        // For now, just return the notification
-        return ResponseEntity.ok(notif);
+        // Mark notification as read
+        Notification updated = service.markAsRead(notif.getId());
+        return ResponseEntity.ok(updated);
     }
 
     /**
-     * Mark all notifications as read
+     * Mark all notifications as read for the current user
      */
     @PutMapping("/read-all")
-    public ResponseEntity<?> markAllAsRead() {
-        return ResponseEntity.ok(Map.of("message", "All notifications marked as read"));
+    public ResponseEntity<?> markAllAsRead(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        User currentUser = getCurrentUser(authHeader);
+        
+        if (currentUser == null) {
+            return ResponseEntity.status(401).body("Authentication required");
+        }
+        
+        // Get all unread notifications for the user
+        List<Notification> unreadNotifications = service.getByRecipient(currentUser.getId())
+            .stream()
+            .filter(n -> !n.isRead())
+            .toList();
+        
+        // Mark all as read
+        for (Notification notif : unreadNotifications) {
+            service.markAsRead(notif.getId());
+        }
+        
+        return ResponseEntity.ok(Map.of(
+            "message", "All notifications marked as read",
+            "count", unreadNotifications.size()
+        ));
     }
 
     /**

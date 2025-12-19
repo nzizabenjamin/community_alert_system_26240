@@ -29,12 +29,20 @@ public class LocationController {
     
     @GetMapping
     public ResponseEntity<?> getAll(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer size,
             @RequestParam(defaultValue = "name") String sortBy,
             @RequestParam(defaultValue = "ASC") String sortDir) {
+        // If no pagination params provided, return all locations as a list (for dropdowns)
+        if (page == null && size == null) {
+            List<LocationDTO> allLocations = service.getAllAsDTO();
+            return ResponseEntity.ok(allLocations);
+        }
+        // Otherwise, return paginated results
+        int pageNum = page != null ? page : 0;
+        int pageSize = size != null ? size : 10;
         Sort.Direction dir = Sort.Direction.fromString(sortDir);
-        Page<LocationDTO> pageData = service.getAllAsDTO(PageRequest.of(page, size, Sort.by(dir, sortBy)));
+        Page<LocationDTO> pageData = service.getAllAsDTO(PageRequest.of(pageNum, pageSize, Sort.by(dir, sortBy)));
         return ResponseEntity.ok(pageData);
     }
     

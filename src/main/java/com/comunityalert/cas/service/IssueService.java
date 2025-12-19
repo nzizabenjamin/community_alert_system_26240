@@ -23,13 +23,16 @@ public class IssueService {
     private final TagService tagService;
     private final LocationRepository locationRepo;
     private final UserRepository userRepo;
+    private final NotificationService notificationService;
 
     public IssueService(IssueRepository repo, TagService tagService, 
-                       LocationRepository locationRepo, UserRepository userRepo) { 
+                       LocationRepository locationRepo, UserRepository userRepo,
+                       NotificationService notificationService) { 
         this.repo = repo;
         this.tagService = tagService;
         this.locationRepo = locationRepo;
         this.userRepo = userRepo;
+        this.notificationService = notificationService;
     }
 
     public IssueReport create(IssueReport i) {
@@ -49,7 +52,13 @@ public class IssueService {
         
         i.setDateReported(Instant.now()); 
         i.setStatus(Status.REPORTED); 
-        return repo.save(i); 
+        
+        IssueReport savedIssue = repo.save(i);
+        
+        // System-generated notification: Notify all ADMIN users about new issue
+        notifyAdminsAboutNewIssue(savedIssue);
+        
+        return savedIssue;
     }
 
     /**
@@ -85,7 +94,43 @@ public class IssueService {
         issue.setDateReported(Instant.now());
         issue.setStatus(Status.REPORTED);
         
-        return repo.save(issue);
+        IssueReport savedIssue = repo.save(issue);
+        
+        // System-generated notification: Notify all ADMIN users about new issue
+        notifyAdminsAboutNewIssue(savedIssue);
+        
+        return savedIssue;
+    }
+
+    /**
+     * Notify all ADMIN users when a new issue is created
+     */
+    private void notifyAdminsAboutNewIssue(IssueReport issue) {
+        try {
+            List<User> adminUsers = userRepo.findAll().stream()
+                .filter(user -> user.getRole() == Role.ADMIN)
+                .toList();
+            
+            String reporterName = issue.getReportedBy() != null 
+                ? (issue.getReportedBy().getFullName() != null && !issue.getReportedBy().getFullName().isEmpty()
+                    ? issue.getReportedBy().getFullName() 
+                    : issue.getReportedBy().getEmail())
+                : "Unknown";
+            
+            String locationName = issue.getLocation() != null 
+                ? issue.getLocation().getName() 
+                : "Unknown location";
+            
+            String message = String.format("New issue reported: '%s' by %s in %s", 
+                issue.getTitle(), reporterName, locationName);
+            
+            for (User admin : adminUsers) {
+                notificationService.createNotification(admin, issue, message);
+            }
+        } catch (Exception e) {
+            // Log error but don't fail issue creation if notification fails
+            System.err.println("Error creating notifications for new issue: " + e.getMessage());
+        }
     }
 
     public List<IssueReport> getAll() { 
@@ -226,11 +271,55 @@ public class IssueService {
     }
 
     public IssueReport updateStatus(UUID id, Status status) { 
-        IssueReport e = repo.findById(id).orElseThrow(); 
-        e.setStatus(status); 
+        IssueReport issue = repo.findById(id).orElseThrow();
+        Status oldStatus = issue.getStatus();
+        issue.setStatus(status); 
         if (status == Status.RESOLVED) 
-            e.setDateResolved(Instant.now()); 
-        return repo.save(e); 
+            issue.setDateResolved(Instant.now()); 
+        
+        IssueReport savedIssue = repo.save(issue);
+        
+        // System-generated notification: Notify reporting resident about status change
+        if (oldStatus != status && savedIssue.getReportedBy() != null) {
+            notifyResidentAboutStatusChange(savedIssue, oldStatus, status);
+        }
+        
+        return savedIssue; 
+    }
+
+    /**
+     * Notify the reporting resident when issue status changes
+     */
+    private void notifyResidentAboutStatusChange(IssueReport issue, Status oldStatus, Status newStatus) {
+        try {
+            User resident = issue.getReportedBy();
+            if (resident == null) return;
+            
+            String statusMessage = getStatusChangeMessage(issue, oldStatus, newStatus);
+            notificationService.createNotification(resident, issue, statusMessage);
+        } catch (Exception e) {
+            // Log error but don't fail status update if notification fails
+            System.err.println("Error creating notification for status change: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Generate appropriate message based on status change
+     */
+    private String getStatusChangeMessage(IssueReport issue, Status oldStatus, Status newStatus) {
+        String issueTitle = issue.getTitle();
+        
+        switch (newStatus) {
+            case IN_PROGRESS:
+                return String.format("Your issue '%s' is now being processed", issueTitle);
+            case RESOLVED:
+                return String.format("Your issue '%s' has been resolved", issueTitle);
+            case REPORTED:
+                return String.format("Your issue '%s' status has been updated to Reported", issueTitle);
+            default:
+                return String.format("Your issue '%s' status has been updated from %s to %s", 
+                    issueTitle, oldStatus, newStatus);
+        }
     }
 
     public IssueReport update(UUID id, IssueReport payload) { 

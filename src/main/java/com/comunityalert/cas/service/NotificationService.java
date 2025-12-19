@@ -24,7 +24,14 @@ public class NotificationService {
         this.repo = repo; 
     }
 
-    public Notification send(User recipient, IssueReport issue, String message) {
+    /**
+     * Create and send a notification (system-generated)
+     * @param recipient The user who will receive the notification
+     * @param issue The issue related to this notification (can be null)
+     * @param message The notification message
+     * @return The created notification
+     */
+    public Notification createNotification(User recipient, IssueReport issue, String message) {
         Notification n = new Notification();
         n.setRecipient(recipient);
         n.setIssue(issue);
@@ -32,7 +39,27 @@ public class NotificationService {
         n.setChannel(Channel.SYSTEM);
         n.setSentAt(Instant.now());
         n.setDelivered(true);
+        n.setRead(false);
         return repo.save(n);
+    }
+
+    /**
+     * Legacy method - kept for backward compatibility
+     * @deprecated Use createNotification instead
+     */
+    @Deprecated
+    public Notification send(User recipient, IssueReport issue, String message) {
+        return createNotification(recipient, issue, message);
+    }
+
+    /**
+     * Mark a notification as read
+     */
+    public Notification markAsRead(UUID notificationId) {
+        Notification notification = repo.findById(notificationId)
+            .orElseThrow(() -> new RuntimeException("Notification not found"));
+        notification.setRead(true);
+        return repo.save(notification);
     }
 
     public List<Notification> getByRecipient(UUID userId) {
