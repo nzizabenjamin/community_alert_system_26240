@@ -9,6 +9,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -65,7 +66,7 @@ public class LocationController {
     }
 
     /**
-     * Search locations globally
+     * Search locations globally (database locations)
      */
     @GetMapping("/search")
     public ResponseEntity<?> search(@RequestParam String q) {
@@ -77,5 +78,117 @@ public class LocationController {
             )
             .toList();
         return ResponseEntity.ok(results);
+    }
+
+    // ========== Rwanda Locations Hierarchy Endpoints ==========
+
+    /**
+     * Get all provinces
+     * GET /api/locations/provinces
+     */
+    @GetMapping("/provinces")
+    public ResponseEntity<?> getProvinces() {
+        try {
+            return ResponseEntity.ok(service.getProvinces());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get districts by province code
+     * GET /api/locations/districts?provinceCode=1
+     */
+    @GetMapping("/districts")
+    public ResponseEntity<?> getDistricts(@RequestParam(required = false) Integer provinceCode) {
+        try {
+            return ResponseEntity.ok(service.getDistricts(provinceCode));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get sectors by district code
+     * GET /api/locations/sectors?districtCode=101
+     */
+    @GetMapping("/sectors")
+    public ResponseEntity<?> getSectors(@RequestParam(required = false) Integer districtCode) {
+        try {
+            return ResponseEntity.ok(service.getSectors(districtCode));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get cells by sector code
+     * GET /api/locations/cells?sectorCode=010101
+     */
+    @GetMapping("/cells")
+    public ResponseEntity<?> getCells(@RequestParam(required = false) String sectorCode) {
+        try {
+            return ResponseEntity.ok(service.getCells(sectorCode));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get villages by cell code
+     * GET /api/locations/villages?cellCode=10101
+     */
+    @GetMapping("/villages")
+    public ResponseEntity<?> getVillages(@RequestParam(required = false) Integer cellCode) {
+        try {
+            return ResponseEntity.ok(service.getVillages(cellCode));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get complete location hierarchy by village code
+     * GET /api/locations/village/{villageCode}
+     */
+    @GetMapping("/village/{villageCode}")
+    public ResponseEntity<?> getLocationByVillageCode(@PathVariable Integer villageCode) {
+        try {
+            java.util.Map<String, Object> location = service.getLocationByVillageCode(villageCode);
+            if (location == null) {
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(location);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Search Rwanda locations by name
+     * GET /api/locations/rwanda/search?q=kigali&level=all
+     */
+    @GetMapping("/rwanda/search")
+    public ResponseEntity<?> searchRwandaLocations(
+            @RequestParam String q,
+            @RequestParam(required = false, defaultValue = "all") String level) {
+        try {
+            return ResponseEntity.ok(service.searchLocations(q, level));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * Get location statistics
+     * GET /api/locations/stats
+     */
+    @GetMapping("/stats")
+    public ResponseEntity<?> getLocationStats() {
+        try {
+            return ResponseEntity.ok(service.getLocationStats());
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+        }
     }
 }

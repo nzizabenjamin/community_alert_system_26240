@@ -8,6 +8,7 @@ public class CreateIssueDTO {
     private String description;
     private String category;
     private UUID locationId;
+    private Integer villageCode; // Alternative to locationId - village code from RwandaLocations
     private UUID reportedById;
     private String photoUrl;
     private List<UUID> tagIds; // Tags selected by resident
@@ -80,5 +81,13 @@ public class CreateIssueDTO {
 
     public void setTagIds(List<UUID> tagIds) {
         this.tagIds = tagIds;
+    }
+
+    public Integer getVillageCode() {
+        return villageCode;
+    }
+
+    public void setVillageCode(Integer villageCode) {
+        this.villageCode = villageCode;
     }
 }

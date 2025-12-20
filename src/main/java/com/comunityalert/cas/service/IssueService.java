@@ -22,15 +22,18 @@ public class IssueService {
     private final IssueRepository repo;
     private final TagService tagService;
     private final LocationRepository locationRepo;
+    private final LocationService locationService;
     private final UserRepository userRepo;
     private final NotificationService notificationService;
 
     public IssueService(IssueRepository repo, TagService tagService, 
-                       LocationRepository locationRepo, UserRepository userRepo,
+                       LocationRepository locationRepo, LocationService locationService,
+                       UserRepository userRepo,
                        NotificationService notificationService) { 
         this.repo = repo;
         this.tagService = tagService;
         this.locationRepo = locationRepo;
+        this.locationService = locationService;
         this.userRepo = userRepo;
         this.notificationService = notificationService;
     }
@@ -71,14 +74,26 @@ public class IssueService {
         issue.setCategory(dto.getCategory());
         issue.setPhotoUrl(dto.getPhotoUrl());
         
-        // Fetch location
-        Location location = locationRepo.findById(dto.getLocationId())
-            .orElseThrow(() -> new RuntimeException("Location not found"));
+        // Fetch location - handle both locationId and villageCode
+        Location location = null;
+        if (dto.getLocationId() != null) {
+            // Use provided locationId
+            location = locationRepo.findById(dto.getLocationId())
+                .orElseThrow(() -> new RuntimeException("Location not found with ID: " + dto.getLocationId()));
+        } else if (dto.getVillageCode() != null) {
+            // Look up location from village code
+            location = findOrCreateLocationFromVillageCode(dto.getVillageCode());
+        } else {
+            throw new RuntimeException("Either locationId or villageCode must be provided");
+        }
         issue.setLocation(location);
         
         // Fetch user
+        if (dto.getReportedById() == null) {
+            throw new RuntimeException("reportedById must not be null");
+        }
         User user = userRepo.findById(dto.getReportedById())
-            .orElseThrow(() -> new RuntimeException("User not found"));
+            .orElseThrow(() -> new RuntimeException("User not found with ID: " + dto.getReportedById()));
         issue.setReportedBy(user);
         
         // Validate and add tags if provided
@@ -100,6 +115,44 @@ public class IssueService {
         notifyAdminsAboutNewIssue(savedIssue);
         
         return savedIssue;
+    }
+
+    /**
+     * Find or create a Location entity from a village code
+     * Uses RwandaLocations to get the village data, then finds or creates the Location
+     */
+    private Location findOrCreateLocationFromVillageCode(Integer villageCode) {
+        try {
+            // Get location data from RwandaLocations
+            java.util.Map<String, Object> locationData = locationService.getLocationByVillageCode(villageCode);
+            if (locationData == null) {
+                throw new RuntimeException("Village code not found: " + villageCode);
+            }
+            
+            // Extract village name from the location data
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> village = (java.util.Map<String, Object>) locationData.get("village");
+            String villageName = (String) village.get("name");
+            
+            // Try to find existing location by name (case-insensitive)
+            Optional<Location> existingLocation = locationRepo.findAll().stream()
+                .filter(loc -> loc.getName() != null && loc.getName().equalsIgnoreCase(villageName))
+                .findFirst();
+            
+            if (existingLocation.isPresent()) {
+                return existingLocation.get();
+            }
+            
+            // Create new location if not found
+            Location newLocation = new Location();
+            newLocation.setName(villageName);
+            newLocation.setType(com.comunityalert.cas.enums.LocationType.VILLAGE);
+            // Note: We could set parent location here if needed, but for now just create the village
+            
+            return locationRepo.save(newLocation);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find or create location from village code " + villageCode + ": " + e.getMessage(), e);
+        }
     }
 
     /**
