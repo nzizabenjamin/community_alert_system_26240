@@ -43,12 +43,24 @@ public class UserMapper {
         dto.setFullName(fullName);
         dto.setEmail(user.getEmail());
         dto.setPhoneNumber(user.getPhoneNumber());
-        dto.setRole(user.getRole());
+        
+        // ✅ CRITICAL: Map role - handle null case (default to RESIDENT)
+        if (user.getRole() != null) {
+            dto.setRole(user.getRole());
+        } else {
+            dto.setRole(com.comunityalert.cas.enums.Role.RESIDENT);  // Default to RESIDENT if null
+        }
+        
         dto.setCreatedAt(user.getCreatedAt());
         
+        // ✅ Always set locationId if location exists (required by frontend)
         if (user.getLocation() != null) {
             dto.setLocationId(user.getLocation().getId());
             dto.setLocationName(user.getLocation().getName());
+        } else {
+            // Set to null explicitly if no location (frontend expects this field)
+            dto.setLocationId(null);
+            dto.setLocationName(null);
         }
         
         return dto;
@@ -56,6 +68,7 @@ public class UserMapper {
 
     /**
      * Convert CreateUserDTO to User entity (for creation)
+     * NOTE: Role is set by UserService - this mapper should not override it
      */
     public User toEntity(CreateUserDTO dto) {
         if (dto == null) return null;
@@ -65,7 +78,13 @@ public class UserMapper {
         user.setEmail(dto.getEmail());
         user.setPassword(dto.getPassword());  // Will be hashed in service
         user.setPhoneNumber(dto.getPhoneNumber());
-        user.setRole(dto.getRole());
+        // ✅ Role is set by UserService.create() - always RESIDENT for signups
+        // If role is provided in DTO, it will be overridden in UserService
+        if (dto.getRole() != null) {
+            user.setRole(dto.getRole());
+        } else {
+            user.setRole(com.comunityalert.cas.enums.Role.RESIDENT);  // Default to RESIDENT
+        }
         
         if (dto.getLocationId() != null) {
             Location location = locationRepo.findById(dto.getLocationId())

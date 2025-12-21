@@ -36,5 +36,5 @@ public interface IssueRepository extends JpaRepository<IssueReport, UUID> {
     long countByStatus(@Param("status") Status status);
 
     @Query(value = "SELECT i.* FROM issues i ORDER BY i.date_reported DESC LIMIT 5", nativeQuery = true)
-    List<IssueReport> findTop5ByOrderByDateReportedDesc();
+	List<IssueReport> findTop5ByOrderByDateReportedDesc();
 }

@@ -229,7 +229,7 @@ public class IssueService {
             e.printStackTrace();
             // Return empty page instead of throwing
             return Page.empty(pageable);
-        }
+    }
     }
 
     /**

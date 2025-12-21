@@ -103,6 +103,12 @@ public class OTPController {
         User user = userRepository.findById(userId).orElse(null);
         if (user == null) return ResponseEntity.status(404).body("User not found");
 
+        // ✅ CRITICAL: Ensure role is set (handle legacy users with null role)
+        if (user.getRole() == null) {
+            user.setRole(com.comunityalert.cas.enums.Role.RESIDENT);
+            user = userRepository.save(user);
+        }
+
         String token = jwtService.generateToken(user);
         UserDTO userDTO = userMapper.toDTO(user);
         
@@ -112,6 +118,11 @@ public class OTPController {
         ));
     }
 
+    /**
+     * User signup endpoint
+     * IMPORTANT: All users created through signup are automatically assigned RESIDENT role
+     * ADMIN users cannot be created through signup - they must be created through admin endpoints
+     */
     @PostMapping("/signup")
     public ResponseEntity<?> signup(@RequestBody CreateUserDTO dto) {
         // Check if email already exists
@@ -119,10 +130,14 @@ public class OTPController {
             return ResponseEntity.badRequest().body("Email already exists");
         }
 
+        // ✅ CRITICAL: Force RESIDENT role (ignore any role in request body)
+        // This ensures no ADMIN can be created through signup
+        dto.setRole(com.comunityalert.cas.enums.Role.RESIDENT);
+
         // Hash password before saving
         dto.setPassword(passwordEncoder.encode(dto.getPassword()));
         
-        // Create user
+        // Create user (UserService.create() will also enforce RESIDENT role)
         UserDTO userDTO = userService.create(dto);
         
         // Generate token

@@ -113,7 +113,7 @@ public class TagService {
         
         existing.setName(payload.getName());
         if (payload.getDescription() != null) {
-            existing.setDescription(payload.getDescription());
+        existing.setDescription(payload.getDescription());
         }
         existing.setActive(payload.isActive());
         return repo.save(existing);

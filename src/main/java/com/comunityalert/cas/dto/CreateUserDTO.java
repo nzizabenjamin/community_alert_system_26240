@@ -10,6 +10,7 @@ public class CreateUserDTO {
     private String phoneNumber;
     private Role role;
     private UUID locationId;
+    private Integer villageCode; // Alternative to locationId - village code from RwandaLocations
 
     // Constructors
     public CreateUserDTO() {}
@@ -71,5 +72,13 @@ public class CreateUserDTO {
 
     public void setLocationId(UUID locationId) {
         this.locationId = locationId;
+    }
+
+    public Integer getVillageCode() {
+        return villageCode;
+    }
+
+    public void setVillageCode(Integer villageCode) {
+        this.villageCode = villageCode;
     }
 }

@@ -29,8 +29,8 @@ public class User {
     private String phoneNumber;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "role")
-    private Role role;
+    @Column(name = "role", nullable = false)
+    private Role role = Role.RESIDENT;  // ✅ Default to RESIDENT
 
     @Column(name = "created_at")
     private Instant createdAt = Instant.now();

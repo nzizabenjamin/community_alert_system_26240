@@ -2,7 +2,10 @@ package com.comunityalert.cas.controller;
 
 import com.comunityalert.cas.dto.CreateUserDTO;
 import com.comunityalert.cas.dto.UserDTO;
+import com.comunityalert.cas.model.User;
 import com.comunityalert.cas.service.UserService;
+import com.comunityalert.cas.service.JwtService;
+import com.comunityalert.cas.mapper.UserMapper;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -18,9 +21,73 @@ import java.util.UUID;
 public class UserController {
     
     private final UserService service;
+    private final JwtService jwtService;
+    private final UserMapper userMapper;
     
-    public UserController(UserService service) { 
-        this.service = service; 
+    public UserController(UserService service, JwtService jwtService, UserMapper userMapper) { 
+        this.service = service;
+        this.jwtService = jwtService;
+        this.userMapper = userMapper;
+    }
+    
+    /**
+     * Get current authenticated user
+     * GET /api/users/me
+     * Authorization: Bearer <token>
+     */
+    @GetMapping("/me")
+    public ResponseEntity<UserDTO> getCurrentUser(
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        try {
+            User currentUser = getCurrentUserFromToken(authHeader);
+            if (currentUser == null) {
+                return ResponseEntity.status(401).build();
+            }
+            
+            // ✅ CRITICAL: Ensure role is set (handle legacy users with null role)
+            if (currentUser.getRole() == null) {
+                currentUser.setRole(com.comunityalert.cas.enums.Role.RESIDENT);
+                service.save(currentUser);
+            }
+            
+            // Ensure locationId is set in DTO (required by frontend)
+            UserDTO userDTO = userMapper.toDTO(currentUser);
+            
+            // If locationId is still null but location exists, ensure it's set
+            if (userDTO.getLocationId() == null && currentUser.getLocation() != null) {
+                userDTO.setLocationId(currentUser.getLocation().getId());
+                userDTO.setLocationName(currentUser.getLocation().getName());
+            }
+            
+            return ResponseEntity.ok(userDTO);
+        } catch (Exception e) {
+            System.err.println("Error getting current user: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(500).build();
+        }
+    }
+    
+    /**
+     * Helper method to extract current user from Authorization header
+     */
+    private User getCurrentUserFromToken(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return null;
+        }
+        
+        try {
+            String token = authHeader.substring(7);
+            String userIdStr = jwtService.getUserIdFromToken(token);
+            if (userIdStr == null) {
+                return null;
+            }
+            
+            UUID userId = UUID.fromString(userIdStr);
+            return service.getUserEntity(userId).orElse(null);
+        } catch (Exception e) {
+            System.err.println("Error extracting user from token: " + e.getMessage());
+            return null;
+        }
     }
 
     /**

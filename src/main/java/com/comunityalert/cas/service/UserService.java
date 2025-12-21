@@ -13,17 +13,24 @@ import com.comunityalert.cas.dto.CreateUserDTO;
 import com.comunityalert.cas.dto.UserDTO;
 import com.comunityalert.cas.mapper.UserMapper;
 import com.comunityalert.cas.model.User;
+import com.comunityalert.cas.model.Location;
+import com.comunityalert.cas.enums.Role;
 import com.comunityalert.cas.repository.UserRepository;
+import com.comunityalert.cas.repository.LocationRepository;
 
 @Service
 public class UserService {
     private final UserRepository repo;
     private final UserMapper mapper;
+    private final LocationService locationService;
+    private final LocationRepository locationRepo;
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository repo, UserMapper mapper) { 
+    public UserService(UserRepository repo, UserMapper mapper, LocationService locationService, LocationRepository locationRepo) { 
         this.repo = repo;
         this.mapper = mapper;
+        this.locationService = locationService;
+        this.locationRepo = locationRepo;
         this.passwordEncoder = new BCryptPasswordEncoder();
     }
 
@@ -46,6 +53,8 @@ public class UserService {
     
     /**
      * Create new user from CreateUserDTO
+     * IMPORTANT: All users created through signup are automatically RESIDENT
+     * ADMIN users must be created through admin endpoints, not signup
      */
     public UserDTO create(CreateUserDTO dto) {
         // Hash password if not already hashed (check if it starts with BCrypt prefix)
@@ -54,9 +63,59 @@ public class UserService {
             dto.setPassword(passwordEncoder.encode(password));
         }
         
+        // ✅ CRITICAL: Force RESIDENT role for all signups (ignore any role in DTO)
+        dto.setRole(Role.RESIDENT);
+        
+        // Handle location - support both locationId and villageCode
+        if (dto.getLocationId() == null && dto.getVillageCode() != null) {
+            // Convert villageCode to locationId
+            Location location = findOrCreateLocationFromVillageCode(dto.getVillageCode());
+            dto.setLocationId(location.getId());
+        }
+        
         User user = mapper.toEntity(dto);
+        // ✅ Ensure role is set to RESIDENT (double-check)
+        user.setRole(Role.RESIDENT);
         User saved = repo.save(user);
         return mapper.toDTO(saved);
+    }
+    
+    /**
+     * Find or create a Location entity from a village code
+     * Uses RwandaLocations to get the village data, then finds or creates the Location
+     */
+    private Location findOrCreateLocationFromVillageCode(Integer villageCode) {
+        try {
+            // Get location data from RwandaLocations
+            java.util.Map<String, Object> locationData = locationService.getLocationByVillageCode(villageCode);
+            if (locationData == null) {
+                throw new RuntimeException("Village code not found: " + villageCode);
+            }
+            
+            // Extract village name from the location data
+            @SuppressWarnings("unchecked")
+            java.util.Map<String, Object> village = (java.util.Map<String, Object>) locationData.get("village");
+            String villageName = (String) village.get("name");
+            
+            // Try to find existing location by name (case-insensitive)
+            Optional<Location> existingLocation = locationRepo.findAll().stream()
+                .filter(loc -> loc.getName() != null && loc.getName().equalsIgnoreCase(villageName))
+                .findFirst();
+            
+            if (existingLocation.isPresent()) {
+                return existingLocation.get();
+            }
+            
+            // Create new location if not found
+            Location newLocation = new Location();
+            newLocation.setName(villageName);
+            newLocation.setType(com.comunityalert.cas.enums.LocationType.VILLAGE);
+            // Note: We could set parent location here if needed, but for now just create the village
+            
+            return locationRepo.save(newLocation);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to find or create location from village code " + villageCode + ": " + e.getMessage(), e);
+        }
     }
     
     /**
